@@ -4,7 +4,7 @@ mongoose.set('strictQuery', true)
 const dbConnect = (app) => {
     // // // CONECCION CON LA BASE DE DATOS, MONGO DB MONGOSE!
     mongoose.connect(
-        `mongodb+srv://MR-2291:${process.env.MONGO_DB_PASS}@cluster0.brhpx.mongodb.net/stock-app?retryWrites=true&w=majority`
+        `mongodb+srv://MR-2291:${process.env.MONGO_DB_PASS}@cluster0.brhpx.mongodb.net/LZ-INVENTAR?retryWrites=true&w=majority`
     )
     
     .then((result) => {
