@@ -30,7 +30,7 @@ app.use(express.json())
 // Rutas
 app.use('/api/v1/admin', adminRouter);
 app.use('/api/v1/products', productRouter)
-
+ 
 app.get('/', (req,res) => {
     res.sendFile(path.join(__dirname, '/public/index.html'));
   })

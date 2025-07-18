@@ -3,7 +3,7 @@ const cors = require('cors');
 
 const allowedOrigins = process.env.NODE_ENV === 'production' 
   ? [
-     'https://lz-front.vercel.app/',
+     'https://lz-front.vercel.app',
   ] 
   : ['http://localhost:3000'];
 
