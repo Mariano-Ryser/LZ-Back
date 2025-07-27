@@ -5,48 +5,16 @@ const upload = require('../../middleware/multer.product');
 const uploadImage = upload.single('imagen');
 
 
-
 const getProducts = async (req, res) => {
     try {
-        // Obtener parámetros de filtrado
-        const { sort, category, supplier, minPrice, maxPrice, lugarDeVenta, marca } = req.query;
+        const products = await Product.find({});
+        const total = await Product.countDocuments();
         
-        // Construir query de filtrado
-        let query = { deleted: false };
-        
-        if (category) query.category = category;
-        if (supplier) query.supplier = supplier;
-        if (lugarDeVenta) query.lugarDeVenta = lugarDeVenta;
-        if (marca) query.marca = marca;
-        if (minPrice || maxPrice) {
-            query.price = {};
-            if (minPrice) query.price.$gte = parseFloat(minPrice);
-            if (maxPrice) query.price.$lte = parseFloat(maxPrice);
-        }
-        
-        // Construir opciones de ordenamiento
-        let sortOptions = { _id: 1 }; // Por defecto ordenar por ID
-        if (sort === 'price-asc') sortOptions = { price: 1 };
-        if (sort === 'price-desc') sortOptions = { price: -1 };
-        if (sort === 'name-asc') sortOptions = { name: 1 };
-        if (sort === 'name-desc') sortOptions = { name: -1 };
-        
-        const products = await Product.find(query).sort(sortOptions);
-        
-        const total = products.reduce((sum, product) => {
-            let price = product.price;
-            if (price && typeof price === 'object' && '$numberDecimal' in price) {
-                price = parseFloat(price.$numberDecimal);
-            }
-            return sum + Number(price) || 0;
-        }, 0);
-
         res.status(200).json({
             ok: true,
             products,
             total: Number(total).toFixed(2)
         });
-
     } catch (error) {
         console.error('Error en getProducts:', error);
         res.status(500).json({ 
@@ -56,6 +24,7 @@ const getProducts = async (req, res) => {
         });
     }
 };
+
 const createProduct = async (req, res) => {
     try {
         uploadImage(req, res, async (err) => {
@@ -66,22 +35,27 @@ const createProduct = async (req, res) => {
                 });
             }
 
-            if(!req.body.name) {
+            if(!req.body.artikelName) {
                 return res.status(400).json({
                     ok: false,
-                    message: 'El campo Nombre del producto es obligatorio'
+                    message: 'El nombre del producto es obligatorio'
                 });
             }
 
             let imageUrl = '';
             let publicId = '';
 
-            // Subir imagen a Cloudinary si existe
             if (req.file) {
                 try {
                     const result = await cloudinary.uploader.upload(req.file.path, {
-                        folder: 'products'
+                        folder: 'LagerZ-products',
+                        transformation: [
+                            { width: 600, height: 600, crop: 'fill', gravity: 'auto' },
+                            { quality: 'auto:low' },
+                            { fetch_format: 'auto' }
+                        ]
                     });
+
                     imageUrl = result.secure_url;
                     publicId = result.public_id;
                 } catch (uploadError) {
@@ -192,7 +166,7 @@ const updateProduct = async (req, res) => {
   
           // Subir la nueva imagen
           const result = await cloudinary.uploader.upload(req.file.path, {
-            folder: 'products'
+            folder: 'LZ-products'
           });
           imageUrl = result.secure_url;
           publicId = result.public_id;
