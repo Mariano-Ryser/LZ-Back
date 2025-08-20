@@ -16,7 +16,6 @@ const mongoURI = `mongodb+srv://MR-2291:${MONGO_PASS}@cluster0.brhpx.mongodb.net
 // Conexión principal
 const dbConnect = (app) => {
   mongoose.set('strictQuery', true);
-
   mongoose.connect(mongoURI, {
     useNewUrlParser: true,
     useUnifiedTopology: true,
