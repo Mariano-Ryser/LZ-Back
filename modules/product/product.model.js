@@ -13,9 +13,6 @@ const productSchema = mongoose.Schema({
 },
 { timestamps: true })
 
-
-
-
 //ALMACENAMOS EN UNA CONSTANTE EL MODELADO DEL ALMACEN
 const Product = mongoose.model('Product', productSchema)  
 //EXPORTACION DE MODULO
