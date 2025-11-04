@@ -11,6 +11,8 @@ const dbConnect = require("./db"); //PRIMERO Q TODO)
 // const rateLimitMiddleware = require('./middleware/rateLimitMiddleware'); // Importar el middleware de rate limiting
 
 const adminRouter = require("./modules/admin/admin.routes");
+const clientRoutes = require('./modules/client/client.routes');
+const saleRoutes = require('./modules/sale/sale.routes');
 const productRouter = require("./modules/product/product.routes");
 
 // Los Cors se maneja desde Azure App Service
@@ -28,6 +30,8 @@ dbConnect(app);
 app.use(express.json());
 
 // Rutas
+app.use('/api/v1/clients', clientRoutes);
+app.use('/api/v1/sales', saleRoutes);
 app.use("/api/v1/admin", adminRouter);
 app.use("/api/v1/products", productRouter);
 
