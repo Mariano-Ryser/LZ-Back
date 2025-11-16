@@ -140,65 +140,65 @@ exports.updateSale = async (req, res) => {
   try {
     const { status, items: newItems = [] } = req.body;
 
+    // Validación de estado
     if (!['pending', 'paid', 'cancelled'].includes(status)) {
       return res.status(400).json({ ok: false, message: 'Estado inválido' });
     }
 
     const sale = await Sale.findById(req.params.id).session(session);
-    if (!sale) return res.status(404).json({ ok: false, message: 'No existe' });
+    if (!sale) return res.status(404).json({ ok: false, message: 'No existe la venta' });
 
     const previousStatus = sale.status;
     const wasPaid = previousStatus === 'paid';
     const nowPaid = status === 'paid';
 
-    // Crear mapa de productos actuales
-    const oldProductsMap = {};
-    for (const item of sale.items) {
-      oldProductsMap[item.product.toString()] = item;
-    }
+    // -------------------------------
+    // Mapas de productos: antiguos y nuevos
+    // -------------------------------
+    const oldItemsMap = {};
+    sale.items.forEach(i => { oldItemsMap[i.product.toString()] = i.quantity; });
 
-    // Obtener productos reales para todas las líneas nuevas
-    const realProducts = {};
-    for (const it of newItems) {
-      const prod = await Product.findById(it.productId).session(session);
-      if (!prod) throw new Error(`Producto ${it.productId} no encontrado`);
-      realProducts[it.productId] = prod;
-    }
+    const newItemsMap = {};
+    newItems.forEach(i => { newItemsMap[i.productId] = i.quantity; });
 
-    // -------------------------------------------------
-    // Ajuste de stock basado en diferencias
-    // -------------------------------------------------
-    if (wasPaid || nowPaid) {
-      // Primero, devolver stock de items antiguos si antes estaba pagado
+    // Todos los productos involucrados
+    const allProductIds = Array.from(new Set([...Object.keys(oldItemsMap), ...Object.keys(newItemsMap)]));
+
+    // -------------------------------
+    // Ajuste de stock
+    // -------------------------------
+    for (const productId of allProductIds) {
+      const oldQty = oldItemsMap[productId] || 0;
+      const newQty = newItemsMap[productId] || 0;
+
+      // Solo ajustamos si hay algún cambio
+      if (oldQty === newQty && wasPaid === nowPaid) continue;
+
+      const prod = await Product.findById(productId).session(session);
+      if (!prod) throw new Error(`Producto ${productId} no encontrado`);
+
+      // Devolver stock si antes estaba pagada
       if (wasPaid) {
-        for (const item of sale.items) {
-          const prod = realProducts[item.product.toString()] || await Product.findById(item.product).session(session);
-          prod.stock += item.quantity;
-          await prod.save({ session });
-        }
+        prod.stock += oldQty;
       }
 
-      // Luego, descontar stock de items nuevos si ahora está pagado
+      // Descontar stock si ahora es pagada
       if (nowPaid) {
-        for (const it of newItems) {
-          const prod = realProducts[it.productId];
-          if (prod.stock < it.quantity) {
-            throw new Error(`Stock insuficiente para ${prod.artikelName}`);
-          }
-          prod.stock -= it.quantity;
-          await prod.save({ session });
-        }
+        if (prod.stock < newQty) throw new Error(`Stock insuficiente para ${prod.artikelName}`);
+        prod.stock -= newQty;
       }
+
+      await prod.save({ session });
     }
 
-    // -------------------------------------------------
-    // Actualizar items
-    // -------------------------------------------------
+    // -------------------------------
+    // Reconstruir items actualizados
+    // -------------------------------
     const updatedItems = [];
     let subtotal = 0;
 
     for (const it of newItems) {
-      const prod = realProducts[it.productId];
+      const prod = await Product.findById(it.productId).session(session);
       const unitPrice = it.unitPrice ?? prod.price ?? 0;
       const lineTotal = Number((unitPrice * it.quantity).toFixed(2));
       subtotal += lineTotal;
@@ -208,13 +208,16 @@ exports.updateSale = async (req, res) => {
         artikelName: prod.artikelName,
         quantity: it.quantity,
         unitPrice,
-        lineTotal
+        lineTotal,
       });
     }
 
-    const taxAmount = Number((subtotal * (sale.tax ? sale.tax / 100 : 0.1)).toFixed(2));
+    const taxAmount = Number((subtotal * (sale.tax ? sale.tax / 100 : 0.10)).toFixed(2));
     const total = Number((subtotal + taxAmount).toFixed(2));
 
+    // -------------------------------
+    // Actualizar la venta
+    // -------------------------------
     sale.items = updatedItems;
     sale.status = status;
     sale.subtotal = subtotal;
@@ -222,10 +225,10 @@ exports.updateSale = async (req, res) => {
     sale.total = total;
 
     await sale.save({ session });
-
     await session.commitTransaction();
     session.endSession();
 
+    // Poblar relaciones
     const populated = await Sale.findById(sale._id)
       .populate('items.product')
       .populate('client');
@@ -239,3 +242,4 @@ exports.updateSale = async (req, res) => {
     res.status(400).json({ ok: false, message: err.message });
   }
 };
+
